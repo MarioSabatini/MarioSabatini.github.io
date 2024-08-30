@@ -154,6 +154,44 @@ async function main() {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(dataTable.faces[i].texCoords), gl.STATIC_DRAW);
   }
 
+  //carico la sSphere
+  const responseSphereMtl = await fetch('obj/sphere.mtl');
+  const textSphereMtl = await responseSphereMtl.text();
+  const responseSphere = await fetch('obj/sphere.obj');
+  const textSphere = await responseSphere.text();
+  const dataSphere = newParseObj(textSphere, textSphereMtl);
+
+  //position
+  spherePos = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, spherePos);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(dataSphere.faces[0].positions), gl.STATIC_DRAW);
+
+  //normal
+  sphereNorm = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, sphereNorm);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(dataSphere.faces[0].normals), gl.STATIC_DRAW);
+
+  //texture
+  sphereTex = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, sphereTex);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(dataSphere.faces[0].texCoords), gl.STATIC_DRAW);
+  /*
+  //crea le stelle
+  const radius = 1; // Raggio della sfera
+const latitudeBands = 30; // Numero di bande di latitudine
+const longitudeBands = 30; // Numero di bande di longitudine
+const sphereData = generateSphere(radius, latitudeBands, longitudeBands);
+
+console.log("shepre",sphereData.vertices)
+  
+    //position
+    starPos = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, starPos);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sphereData.vertices), gl.STATIC_DRAW);
+*/
+
+
+
   // texture section, carico le texture
   const texture1 = loadTexture(gl, 'textures/marmo_nero_texture.jpg');
   const texture2 = loadTexture(gl, 'textures/marmo_texture.jpg');
@@ -163,6 +201,7 @@ async function main() {
   const texture6 = loadTexture(gl, 'textures/green.jpg');
   const texture7 = loadTexture(gl, 'textures/face_autor.jpg');
   const texture8 = loadTexture(gl, 'textures/legno.jpg');
+  const texture9 = loadTexture(gl, 'textures/stars.png');
 
   //abilito gli attributi 
   gl.enableVertexAttribArray(positionLoc);
@@ -176,8 +215,9 @@ async function main() {
   const camera = m4.identity();
   const normalMatrix = m4.identity();
   gl.uniformMatrix4fv(uniforms.normalMatrixLoc, false, normalMatrix);
+
   //valori per la prospective matrix
-  const fov = degToRad(90);
+  const fov = degToRad(60);
   const zNear = 0.1;
   const zFar = 1000;
   const aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
@@ -355,13 +395,13 @@ async function main() {
 
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
+
     //creao la matrice camera 
     m4.identity(camera);
     m4.translate(camera, px, py, pz, camera);
     m4.xRotate(camera, degToRad(elev), camera);
     m4.yRotate(camera, degToRad(-ang), camera);
     m4.zRotate(camera, degToRad(roll), camera);
-
 
     //setto i bottoni per il cellulare 
     const upButton = document.getElementById('up');
@@ -501,17 +541,26 @@ async function main() {
 
 
   function drawScene(projMatrix, cameraMatrix, progSelect) {
+    // Calcola la matrice di vista
+    //const cameraPosition = [-px, -py, -pz];
+    //const target = [-px + camera[8], -py + camera[9], -pz + camera[10]]; // Direzione in cui la telecamera guarda
+    //const up = [0, 1, 0]; // Vettore "up"
+    //const viewMatrix = m4.lookAt(cameraPosition, target, up);
+    //m4.inverse(cameraMatrix, view);
+    //setto la model e view uniform
+    // Calcola la matrice di vista
+    //m4.lookAt([2,-4,0],[0,-5,10],[0,1,0],view)
 
     m4.inverse(cameraMatrix, view);
-    //setto la model e view uniform
     gl.uniformMatrix4fv(uniforms.viewLoc, false, view);
+
     gl.uniformMatrix4fv(uniforms.projectionLoc, false, projMatrix);
 
     drawTiles(progSelect);
     drawDeathTiles(progSelect)
     //collego i pezzi ai tasselli
     for (let i = 0; i < piecePositions.length; i++) {
-    
+
       for (let j = 0; j < tilePositions.length; j++) {
         if (tilePositions[j].x === piecePositions[i].x && tilePositions[j].z === piecePositions[i].z) {
           tilesInfo[j].pieceTile = piecePositions[i].id
@@ -528,13 +577,16 @@ async function main() {
     }
     //disegno il tavolo
     drawTable(progSelect)
+
+    //disegna le stelle
+    drawStar(progSelect)
   }
   function drawTiles(progSelect) {
     // Disegna i tasselli
     for (let i = 0; i < tilePositions.length; i++) {
       m4.identity(model)
       // Imposta la matrice del modello per ogni tassello
-      const modelTranslation = m4.translation(tilePositions[i].x, 0, tilePositions[i].z); 
+      const modelTranslation = m4.translation(tilePositions[i].x, 0, tilePositions[i].z);
       m4.multiply(modelTranslation, model, model);
 
       gl.uniformMatrix4fv(uniforms.modelLoc, false, model);
@@ -543,7 +595,7 @@ async function main() {
       const col = i % 8;
       if (progSelect == 1) {
 
-        
+
         if ((row + col) % 2 === 0) {
           // Attiva la texture
           gl.activeTexture(gl.TEXTURE0);
@@ -613,7 +665,7 @@ async function main() {
   function drawPiece(pieceIndex, x, z, textureIndex, progSelect) {
     m4.identity(model);
     const modelTranslation = m4.translation(x, 0, z); // Posiziona il pezzo
-    m4.multiply(modelTranslation, model, model); 
+    m4.multiply(modelTranslation, model, model);
 
     // Imposta le matrici uniformi
     gl.uniformMatrix4fv(uniforms.modelLoc, false, model);
@@ -636,17 +688,17 @@ async function main() {
 
       }
 
-      gl.bindBuffer(gl.ARRAY_BUFFER, bufferOfPiecesNorm[pieceIndex]); 
+      gl.bindBuffer(gl.ARRAY_BUFFER, bufferOfPiecesNorm[pieceIndex]);
       gl.vertexAttribPointer(normalLoc, 3, gl.FLOAT, false, 0, 0);
 
-      gl.bindBuffer(gl.ARRAY_BUFFER, bufferOfPiecesTex[pieceIndex]); 
+      gl.bindBuffer(gl.ARRAY_BUFFER, bufferOfPiecesTex[pieceIndex]);
       gl.vertexAttribPointer(texcordLoc, 2, gl.FLOAT, false, 0, 0);
       // Collega e imposta gli attributi dei vertici
     } else {
       gl.uniform4fv(uniforms.uColorLoc, [0, 0, 1, 1]);
     }
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, bufferOfPiecesPos[pieceIndex]); 
+    gl.bindBuffer(gl.ARRAY_BUFFER, bufferOfPiecesPos[pieceIndex]);
     gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
     // Disegna il pezzo
     gl.drawArrays(gl.TRIANGLES, 0, dataPieces[pieceIndex].faces[0].positions.length / 3);
@@ -658,17 +710,17 @@ async function main() {
     for (let i = 0; i < tileDeathPositions.length; i++) {
       m4.identity(model)
       // Imposta la matrice del modello per ogni tassello
-      const modelTranslation = m4.translation(tileDeathPositions[i].x, 0, tileDeathPositions[i].z); 
-      m4.multiply(modelTranslation, model, model); 
+      const modelTranslation = m4.translation(tileDeathPositions[i].x, 0, tileDeathPositions[i].z);
+      m4.multiply(modelTranslation, model, model);
 
       // Imposta le matrici uniformi
       gl.uniformMatrix4fv(uniforms.modelLoc, false, model);
       // Determina il colore o la texture in base alla posizione
-      const row = Math.floor(i / 8); 
+      const row = Math.floor(i / 8);
       const col = i % 8;
       if (progSelect == 1) {
 
-        
+
         if ((row + col) % 2 === 0) {
           // Attiva la texture
           gl.activeTexture(gl.TEXTURE0);
@@ -698,7 +750,7 @@ async function main() {
         gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
       } else {
         gl.uniform4fv(uniforms.uColorLoc, [1, 0, 1, 1]);
-  
+
         gl.disableVertexAttribArray(texcordLoc)
         gl.disableVertexAttribArray(normalLoc)
         // Collega e imposta gli attributi dei vertici
@@ -763,8 +815,8 @@ async function main() {
     const modelTranslation = m4.translation(7, 0, 7);
 
     // Moltiplica prima la scala e poi la traslazione
-    m4.multiply(modelScale, model, model); 
-    m4.multiply(modelTranslation, model, model); 
+    m4.multiply(modelScale, model, model);
+    m4.multiply(modelTranslation, model, model);
 
     // Invia la matrice del modello al shader
     gl.uniformMatrix4fv(uniforms.modelLoc, false, model);
@@ -792,27 +844,72 @@ async function main() {
 
   }
 
+  function drawStar(progSelect) {
+    gl.disable(gl.CULL_FACE);
+    if (progSelect === 1) {
+      m4.identity(model);
+      const modelScale = m4.scaling(2, 2, 2);
+      const modelTranslation = m4.translation(7, 0, 7);
+  
+      // Moltiplica prima la scala e poi la traslazione
+      m4.multiply(modelScale, model, model);
+      m4.multiply(modelTranslation, model, model);
+      //m4.multiply(modelTranslation, model, model);
+      gl.uniformMatrix4fv(uniforms.modelLoc, false, model);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, sphereNorm); // Usa il buffer per le normali
+      gl.vertexAttribPointer(normalLoc, 3, gl.FLOAT, false, 0, 0);
+
+      gl.bindBuffer(gl.ARRAY_BUFFER, sphereTex); // Usa il buffer per le coordinate di texture
+      gl.vertexAttribPointer(texcordLoc, 2, gl.FLOAT, false, 0, 0);
+
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, texture9);
+      // Imposta l'uniform per la texture
+      const u_textureLocation = gl.getUniformLocation(mainProgram, 'u_texture');
+      gl.uniform1i(u_textureLocation, 0);
+      // Invia la matrice del modello al shader
+
+      //setto il colore del punto
+      //gl.uniform4fv(uniforms.uColorLoc, [1, 1, 1, 1]);
+
+      // Collega e imposta gli attributi dei vertici
+      gl.bindBuffer(gl.ARRAY_BUFFER, spherePos); // Usa il buffer per la posizione
+      gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
+      gl.uniform1f(uniforms.sphereLoc, 1.0);
+      gl.drawArrays(gl.TRIANGLES, 0, dataSphere.faces[0].positions.length / 3);
+
+      gl.uniform1f(uniforms.sphereLoc, 0.0);
+      gl.enableVertexAttribArray(texcordLoc)
+      gl.enableVertexAttribArray(normalLoc)
+    }
+    gl.enable(gl.CULL_FACE);
+  }
+
   const mousePosition = { x: 0, y: 0 };
   let oldID = 99;
   canvas.addEventListener('mousedown', (evt) => {
-   
+
     if (evt.button === 0) {
       mousePosition.x = evt.offsetX;
       mousePosition.y = canvas.height - evt.offsetY;
-//disegno sul frame buffer la scacchiera, dopodichè leggo i pixel ed estraggo l'identificativo univoco 
-//associato alla casella della scacchiera
+      //disegno sul frame buffer la scacchiera, dopodichè leggo i pixel ed estraggo l'identificativo univoco 
+      //associato alla casella della scacchiera
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl.clearColor(0.0, 0.0, 0.0, 0.0); // Colore nero con trasparenza
+      // Pulisce il buffer di colore
+      gl.clear(gl.COLOR_BUFFER_BIT);
       gl.uniform1f(uniforms.selectLoc, 1.0);
       drawTiles(1);
 
-      gl.readPixels(					
+      gl.readPixels(
         mousePosition.x, mousePosition.y, 1, 1,
         gl.getParameter(gl.IMPLEMENTATION_COLOR_READ_FORMAT),
         gl.getParameter(gl.IMPLEMENTATION_COLOR_READ_TYPE),
         dataID
       );
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-
+      console.log("dataId", dataID[0])
       if (movePiece === true) {
         movement.forEach(element => {
           if (element === dataID[0]) {

@@ -103,6 +103,7 @@ uniform sampler2D u_texture; // Texture uniform
 uniform float u_selectTiles; 
 uniform vec4 u_tilesId; 
 uniform float u_selectShadow;
+uniform float u_sphere;
 
 void main()
 {  
@@ -143,16 +144,20 @@ void main()
   if(u_selectTiles == 1.0){
     gl_FragColor = u_tilesId;
   }else{
-    if(u_selectShadow == 1.0){
-      // Calcola il colore finale
-      gl_FragColor = textureColor * light * shadowLight; // Imposta il colore della texture
-      gl_FragColor.rgb += specular;
-      gl_FragColor.a = 1.0;
+    if(u_sphere == 1.0){
+      gl_FragColor = textureColor; // Imposta il colore della texture
     }else{
-      gl_FragColor = textureColor * light;
-      gl_FragColor.rgb += specular;
-      gl_FragColor.a = 1.0;
+      if(u_selectShadow == 1.0){
+        // Calcola il colore finale
+        gl_FragColor = textureColor * light * shadowLight; // Imposta il colore della texture
+        gl_FragColor.rgb += specular;
+        gl_FragColor.a = 1.0;
+      }else{
+        gl_FragColor = textureColor * light;
+        gl_FragColor.rgb += specular;
+        gl_FragColor.a = 1.0;
     }
+  }
     
   }
 
@@ -177,11 +182,11 @@ void main()
   <!-- fragment shader -->
   <script id="fsColor" type="x-shader/x-fragment">
   precision mediump float;
-uniform vec4 u_color;
+  uniform vec4 u_color;
 
-void main() {
-  gl_FragColor = u_color;
-}
+  void main() {
+    gl_FragColor = u_color;
+  }
   </script>
 </body>
 <script type="text/javascript" src="resources/m4.js"></script>

@@ -168,7 +168,8 @@ function setAttrUniform(progToSet, gl) {
         selectLoc: gl.getUniformLocation(progToSet, "u_selectTiles"),
         idTilesLoc: gl.getUniformLocation(progToSet, "u_tilesId"),
         selectShadowLoc: gl.getUniformLocation(progToSet, "u_selectShadow"),
-        normalMatrixLoc: gl.getUniformLocation(progToSet,"uNormalMatrix")
+        normalMatrixLoc: gl.getUniformLocation(progToSet,"uNormalMatrix"),
+        sphereLoc: gl.getUniformLocation(progToSet,"u_sphere")
     };
 
     // Restituisci l'oggetto con le location degli uniform
@@ -607,3 +608,61 @@ console.log(initialPositions)
       }
       return tilesInfo;
   }
+
+  function generateSphere(radius, latitudeBands, longitudeBands) {
+    const vertices = [];
+    const textureCoords = [];
+    const indices = [];
+
+    for (let latNumber = 0; latNumber <= latitudeBands; latNumber++) {
+        const theta = latNumber * Math.PI / latitudeBands; // Angolo di elevazione
+        const sinTheta = Math.sin(theta);
+        const cosTheta = Math.cos(theta);
+
+        for (let longNumber = 0; longNumber <= longitudeBands; longNumber++) {
+            const phi = longNumber * 2 * Math.PI / longitudeBands; // Angolo di azimut
+            const sinPhi = Math.sin(phi);
+            const cosPhi = Math.cos(phi);
+
+            // Coordinate della sfera
+            const x = radius * sinTheta * cosPhi;
+            const y = radius * cosTheta;
+            const z = radius * sinTheta * sinPhi;
+
+            vertices.push(x, y, z);
+
+            // Coordinate texture
+            const u = longNumber / longitudeBands;
+            const v = latNumber / latitudeBands;
+            textureCoords.push(u, v);
+        }
+    }
+
+    // Genera gli indici per i triangoli
+    for (let latNumber = 0; latNumber < latitudeBands; latNumber++) {
+        for (let longNumber = 0; longNumber < longitudeBands; longNumber++) {
+            const first = (latNumber * (longitudeBands + 1)) + longNumber;
+            const second = first + longitudeBands + 1;
+
+            indices.push(first);
+            indices.push(second);
+            indices.push(first + 1);
+
+            indices.push(second);
+            indices.push(second + 1);
+            indices.push(first + 1);
+        }
+    }
+
+    return {
+        vertices: new Float32Array(vertices),
+        textureCoords: new Float32Array(textureCoords),
+        indices: new Uint16Array(indices)
+    };
+}
+
+// Esempio di utilizzo
+const radius = 1; // Raggio della sfera
+const latitudeBands = 30; // Numero di bande di latitudine
+const longitudeBands = 30; // Numero di bande di longitudine
+const sphereData = generateSphere(radius, latitudeBands, longitudeBands);
