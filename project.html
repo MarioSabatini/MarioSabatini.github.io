@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <canvas id="canvas">
+
+  </canvas>
+  <div id="controls">
+    <div id="arrow-controls">
+      <div class="button" id="up">↑</div>
+    </div>
+    <div id="arrow-controls">
+      <div class="button" id="left">←</div>
+      <div class="button" id="right">→</div>
+    </div>
+    <div id="arrow-controls">
+      <div class="button" id="down">↓</div>
+
+    </div>
+  </div>
+
+  <div id="controlsCamera">
+
+    <div id="arrow-controls">
+      <div class="button" id="Camleft">Left</div>
+      <div class="button" id="Camright">Right</div>
+    </div>
+  </div>
+  <!-- vertex shader -->
+  <script id="vs" type="x-shader/x-vertex">
+
+attribute vec4 aPosition;
+attribute vec2 aTexCoord;
+attribute vec3 aNormal;
+
+uniform mat4 uModel;
+uniform mat4 uView;
+uniform mat4 uProjection;
+uniform mat4 u_textureMatrix;
+
+uniform vec3 u_lightWorldPosition;
+uniform vec3 u_viewWorldPosition;
+
+
+uniform mat4 uNormalMatrix; // Matrice per trasformare le normali
+
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+
+varying vec2 vTexCoord;
+varying vec3 v_normal;
+
+varying vec4 v_projectedTexcoord;
+void main()
+{
+  // compute the world position of the surface
+  vec3 surfaceWorldPosition = (uModel * aPosition).xyz;
+  v_surfaceToLight = u_lightWorldPosition - surfaceWorldPosition;
+
+  // compute the vector of the surface to the view/camera
+  // and pass it to the fragment shader
+  v_surfaceToView = u_viewWorldPosition - surfaceWorldPosition;
+
+
+  // Calcola la normale trasformata
+  v_normal = normalize((uNormalMatrix * vec4(aNormal, 0.0)).xyz);
+  //v_normal = aNormal; // Passa il normale al fragment shader
+  vTexCoord = aTexCoord; // Passa le coordinate texture
+
+  // Calcola la posizione del vertice nel mondo
+  vec4 worldPosition = uModel * aPosition;
+  v_projectedTexcoord = u_textureMatrix * worldPosition;
+
+  // Calcola la posizione finale del vertice
+  gl_Position = uProjection * uView * worldPosition; // Usa worldPosition
+
+}
+  </script>
+
+  <!-- fragment shader -->
+  <script id="fs" type="x-shader/x-fragment">
+  precision mediump float; // Imposta la precisione per i float
+
+varying vec2 vTexCoord; // Coordinate texture dal vertex shader
+varying vec3 v_normal; // Normale dal vertex shader
+
+varying vec3 v_surfaceToLight;
+varying vec3 v_surfaceToView;
+varying vec4 v_projectedTexcoord;
+
+uniform float u_shininess;
+uniform vec3 u_lightDirection;
+uniform float u_limit;          // in dot space
+uniform float u_bias;
+uniform sampler2D u_projectedTexture;
+
+uniform sampler2D u_texture; // Texture uniform
+uniform float u_selectTiles; 
+uniform vec4 u_tilesId; 
+uniform float u_selectShadow;
+
+void main()
+{  
+  vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
+
+  float currentDepth = projectedTexcoord.z + u_bias;
+
+   bool inRange =
+      projectedTexcoord.x >= 0.0 &&
+      projectedTexcoord.x <= 1.0 &&
+      projectedTexcoord.y >= 0.0 &&
+      projectedTexcoord.y <= 1.0;
+  // the 'r' channel has the depth values
+
+  float projectedDepth = texture2D(u_projectedTexture, projectedTexcoord.xy).r;
+  float shadowLight = (inRange && projectedDepth <= currentDepth) ? 0.0 : 1.0;  
+
+  float projectedAmount = inRange ? 1.0 : 0.0;
+
+  vec3 normal = normalize(v_normal); // Normalizza il normale
+
+  vec3 surfaceToLightDirection = normalize(v_surfaceToLight);
+  vec3 surfaceToViewDirection = normalize(v_surfaceToView);
+  vec3 halfVector = normalize(surfaceToLightDirection + surfaceToViewDirection);
+  float light = 0.0;
+  float specular = 0.0;
+  float dotFromDirection = dot(surfaceToLightDirection, -u_lightDirection);
+
+  if (dotFromDirection >= u_limit) {
+    light = dot(normal, surfaceToLightDirection);
+    if (light > 0.0) {
+      specular = pow(dot(normal, halfVector), u_shininess);
+    }
+  }
+
+
+  vec4 textureColor = texture2D(u_texture, vTexCoord); // Campiona la texture
+  if(u_selectTiles == 1.0){
+    gl_FragColor = u_tilesId;
+  }else{
+    if(u_selectShadow == 1.0){
+      // Calcola il colore finale
+      gl_FragColor = textureColor * light * shadowLight; // Imposta il colore della texture
+      gl_FragColor.rgb += specular;
+      gl_FragColor.a = 1.0;
+    }else{
+      gl_FragColor = textureColor * light;
+      gl_FragColor.rgb += specular;
+      gl_FragColor.a = 1.0;
+    }
+    
+  }
+
+}
+  </script>
+
+  <!-- vertex shader -->
+  <script id="vsColor" type="x-shader/x-vertex">
+  attribute vec4 aPosition;
+
+  uniform mat4 uModel;
+  uniform mat4 uView;
+  uniform mat4 uProjection;
+  
+  void main() {
+    // Multiply the position by the matrices.
+    gl_Position = uProjection * uView * uModel * aPosition;
+  
+  }
+  </script>
+
+  <!-- fragment shader -->
+  <script id="fsColor" type="x-shader/x-fragment">
+  precision mediump float;
+uniform vec4 u_color;
+
+void main() {
+  gl_FragColor = u_color;
+}
+  </script>
+</body>
+<script type="text/javascript" src="resources/m4.js"></script>
+<script type="text/javascript" src="resources/glm_utils.js"></script>
+<script src="https://webglfundamentals.org/webgl/resources/webgl-lessons-ui.js"></script>
+<script type="text/javascript" src="resources/dat.gui.js"></script>
+<script src="utils.js"></script>
+<script src="project.js"></script>
+
+
+</html>
