@@ -155,9 +155,9 @@ async function main() {
   }
 
   //carico la sSphere
-  const responseSphereMtl = await fetch('obj/sphere.mtl');
+  const responseSphereMtl = await fetch('obj/stars_cupola.mtl');
   const textSphereMtl = await responseSphereMtl.text();
-  const responseSphere = await fetch('obj/sphere.obj');
+  const responseSphere = await fetch('obj/stars_cupola.obj');
   const textSphere = await responseSphere.text();
   const dataSphere = newParseObj(textSphere, textSphereMtl);
 
@@ -201,7 +201,7 @@ console.log("shepre",sphereData.vertices)
   const texture6 = loadTexture(gl, 'textures/green.jpg');
   const texture7 = loadTexture(gl, 'textures/face_autor.jpg');
   const texture8 = loadTexture(gl, 'textures/legno.jpg');
-  const texture9 = loadTexture(gl, 'textures/stars.png');
+  const texture9 = loadTexture(gl, 'textures/stars.jpg');
 
   //abilito gli attributi 
   gl.enableVertexAttribArray(positionLoc);
@@ -440,6 +440,12 @@ console.log("shepre",sphereData.vertices)
       px -= camera[8] * deltaTime * speed * direction;
       py -= camera[9] * deltaTime * speed * direction;
       pz -= camera[10] * deltaTime * speed * direction;
+      // Limiti per pz
+      if (pz < -20) {
+        pz = -20;
+      } else if (pz > 40) {
+        pz = 40;
+      }
     }
 
     if (keys['a'] || keys['d']) {
@@ -447,8 +453,16 @@ console.log("shepre",sphereData.vertices)
       px -= camera[0] * deltaTime * speed * direction;
       py -= camera[1] * deltaTime * speed * direction;
       pz -= camera[2] * deltaTime * speed * direction;
-    }
+      if (px < -20) {
+        px = -20;
+      } else if (px > 30) {
+        px = 30;
+      }
 
+    }
+    console.log("px", px);
+    console.log("py", py);
+    console.log("pz", pz);
     if (keys[' ']) {
       dataID[0] = 99;
       movePiece = false;
@@ -542,14 +556,6 @@ console.log("shepre",sphereData.vertices)
 
   function drawScene(projMatrix, cameraMatrix, progSelect) {
     // Calcola la matrice di vista
-    //const cameraPosition = [-px, -py, -pz];
-    //const target = [-px + camera[8], -py + camera[9], -pz + camera[10]]; // Direzione in cui la telecamera guarda
-    //const up = [0, 1, 0]; // Vettore "up"
-    //const viewMatrix = m4.lookAt(cameraPosition, target, up);
-    //m4.inverse(cameraMatrix, view);
-    //setto la model e view uniform
-    // Calcola la matrice di vista
-    //m4.lookAt([2,-4,0],[0,-5,10],[0,1,0],view)
 
     m4.inverse(cameraMatrix, view);
     gl.uniformMatrix4fv(uniforms.viewLoc, false, view);
@@ -848,9 +854,9 @@ console.log("shepre",sphereData.vertices)
     gl.disable(gl.CULL_FACE);
     if (progSelect === 1) {
       m4.identity(model);
-      const modelScale = m4.scaling(2, 2, 2);
+      const modelScale = m4.scaling(10, 10, 10);
       const modelTranslation = m4.translation(7, 0, 7);
-  
+
       // Moltiplica prima la scala e poi la traslazione
       m4.multiply(modelScale, model, model);
       m4.multiply(modelTranslation, model, model);
