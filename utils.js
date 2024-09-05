@@ -168,8 +168,9 @@ function setAttrUniform(progToSet, gl) {
         selectLoc: gl.getUniformLocation(progToSet, "u_selectTiles"),
         idTilesLoc: gl.getUniformLocation(progToSet, "u_tilesId"),
         selectShadowLoc: gl.getUniformLocation(progToSet, "u_selectShadow"),
-        normalMatrixLoc: gl.getUniformLocation(progToSet,"uNormalMatrix"),
-        sphereLoc: gl.getUniformLocation(progToSet,"u_sphere")
+        normalMatrixLoc: gl.getUniformLocation(progToSet, "uNormalMatrix"),
+        sphereLoc: gl.getUniformLocation(progToSet, "u_sphere"),
+        textureLoc: gl.getUniformLocation(progToSet, "u_texture")
     };
 
     // Restituisci l'oggetto con le location degli uniform
@@ -217,16 +218,16 @@ function calculateTileDeathPositions(rows, cols, tileSize) {
     // Calcola le posizioni delle caselle ai lati della scacchiera
     for (let i = 0; i < 2; i++) { // Due file
         for (let j = 0; j < 8; j++) {
-            var x = initialPositionRight * tileSize + (i * tileSize) ;
+            var x = initialPositionRight * tileSize + (i * tileSize);
             var z = j * tileSize;
             tilePositions.push({ x, z });
         }
     }
-    
-     // Calcola le posizioni delle caselle ai lati della scacchiera
-     for (let i = 0; i < 2; i++) { // Due file
+
+    // Calcola le posizioni delle caselle ai lati della scacchiera
+    for (let i = 0; i < 2; i++) { // Due file
         for (let j = 0; j < 8; j++) {
-            var x = initialPositionleft * tileSize + (i * tileSize) ;
+            var x = initialPositionleft * tileSize + (i * tileSize);
             var z = j * tileSize;
             tilePositions.push({ x, z });
         }
@@ -238,25 +239,27 @@ function getRandomNumber(min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 var occupiedDeathPositions = [];
-function calculateDethPosition(tileDeathPosition, color){
+function calculateDethPosition(tileDeathPosition, color) {
     //le prime 16 posiizioni nell'array sono per i bianchi
     var randomNumber;
-    if(color == "bianchi"){
+    if (color == "bianchi") {
         do {
-            randomNumber = getRandomNumber(0, 15); 
-        } while (occupiedDeathPositions.includes(randomNumber)); 
+            randomNumber = getRandomNumber(0, 15);
+        } while (occupiedDeathPositions.includes(randomNumber));
         occupiedDeathPositions.push(randomNumber);
-        return{ x:tileDeathPosition[randomNumber].x, 
-                z: tileDeathPosition[randomNumber].z
+        return {
+            x: tileDeathPosition[randomNumber].x,
+            z: tileDeathPosition[randomNumber].z
         }
-    }else{
+    } else {
         do {
-            randomNumber = getRandomNumber(16, 31); 
-        } while (occupiedDeathPositions.includes(randomNumber)); 
-        
+            randomNumber = getRandomNumber(16, 31);
+        } while (occupiedDeathPositions.includes(randomNumber));
+
         occupiedDeathPositions.push(randomNumber);
-        return{ x:tileDeathPosition[randomNumber].x, 
-                z: tileDeathPosition[randomNumber].z
+        return {
+            x: tileDeathPosition[randomNumber].x,
+            z: tileDeathPosition[randomNumber].z
         }
     }
 }
@@ -337,8 +340,8 @@ function createDepthBuffer(gl) {
         gl.DEPTH_COMPONENT, // format
         gl.UNSIGNED_INT,    // type
         null);              // data
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 
@@ -527,19 +530,19 @@ function findTiles(current, f, d, l) {
 
     // Calcola la nuova posizione in base ai movimenti
     if (f) {
-        newZ += f; // Avanti
+        newZ += f; 
     }
     if (d) {
-        newX += d[0]; // Diagonale destra
-        newZ += d[1]; // Diagonale avanti
+        newX += d[0]; 
+        newZ += d[1]; 
     }
     if (l) {
-        newX += l; // Diagonale sinistra
+        newX += l; 
     }
     // Controlla se la nuova posizione è valida (dentro i limiti della scacchiera)
     if (newX >= 0 && newX < 8 && newZ >= 0 && newZ < 8) {
 
-        return newZ * 8 + newX; // ID = (riga * numero di colonne) + colonna
+        return newZ * 8 + newX; 
     }
 
     return null; // Restituisci null se la posizione non è valida
@@ -547,122 +550,166 @@ function findTiles(current, f, d, l) {
 
 function simulateKeyDown(key) {
     const event = new KeyboardEvent('keydown', {
-      key: key,
-      code: `Key${key.toUpperCase()}`,
-      keyCode: key.charCodeAt(0), 
-      which: key.charCodeAt(0), 
-      bubbles: true,
-      cancelable: true
+        key: key,
+        code: `Key${key.toUpperCase()}`,
+        keyCode: key.charCodeAt(0),
+        which: key.charCodeAt(0),
+        bubbles: true,
+        cancelable: true
     });
     window.dispatchEvent(event);
-  }
-  // Funzione per simulare l'evento keyup
-  function simulateKeyUp(key) {
+}
+// Funzione per simulare l'evento keyup
+function simulateKeyUp(key) {
     const event = new KeyboardEvent('keyup', {
-      key: key,
-      code: `Key${key.toUpperCase()}`,
-      keyCode: key.charCodeAt(0), 
-      which: key.charCodeAt(0), 
-      bubbles: true,
-      cancelable: true
+        key: key,
+        code: `Key${key.toUpperCase()}`,
+        keyCode: key.charCodeAt(0),
+        which: key.charCodeAt(0),
+        bubbles: true,
+        cancelable: true
     });
     window.dispatchEvent(event);
-  }
+}
 
-  function getDeviceType() {
+function getDeviceType() {
     const userAgent = navigator.userAgent;
-  
+
     if (/android/i.test(userAgent)) {
-      return 'Android';
+        return 'Android';
     } else if (/iPad|iPhone|iPod/i.test(userAgent)) {
-      return 'iOS';
+        return 'iOS';
     } else {
-      return 'Other';
+        return 'Other';
     }
-  }
+}
 // Funzione lambda per ottenere le posizioni iniziali e gli ID
 const getInitialPositions = (pieces) => pieces.map(({ x, z, id }) => ({ x, z, id }));
 
 const initialPositions = getInitialPositions(piecePositions);
-console.log(initialPositions)
-  function resetPieces(){
+
+function resetPieces() {
     initialPositions.forEach(element => {
-        piecePositions.forEach(piece =>{
-            if(piece.init == 0){
+        piecePositions.forEach(piece => {
+            if (piece.init == 0) {
                 piece.init = 1;
             }
-            if(element.id === piece.id){
+            if (element.id === piece.id) {
                 piece.x = element.x;
                 piece.z = element.z;
             }
         });
     });
-  }
+}
 
-  function setTilesInfo(){
+function setTilesInfo() {
     const tilesInfo = [];
     for (let i = 0; i < 64; i++) {
         const id = i;
         const pieceTile = "none";
         tilesInfo.push({ id, pieceTile });
-      }
-      return tilesInfo;
-  }
-
-  function generateSphere(radius, latitudeBands, longitudeBands) {
-    const vertices = [];
-    const textureCoords = [];
-    const indices = [];
-
-    for (let latNumber = 0; latNumber <= latitudeBands; latNumber++) {
-        const theta = latNumber * Math.PI / latitudeBands; // Angolo di elevazione
-        const sinTheta = Math.sin(theta);
-        const cosTheta = Math.cos(theta);
-
-        for (let longNumber = 0; longNumber <= longitudeBands; longNumber++) {
-            const phi = longNumber * 2 * Math.PI / longitudeBands; // Angolo di azimut
-            const sinPhi = Math.sin(phi);
-            const cosPhi = Math.cos(phi);
-
-            // Coordinate della sfera
-            const x = radius * sinTheta * cosPhi;
-            const y = radius * cosTheta;
-            const z = radius * sinTheta * sinPhi;
-
-            vertices.push(x, y, z);
-
-            // Coordinate texture
-            const u = longNumber / longitudeBands;
-            const v = latNumber / latitudeBands;
-            textureCoords.push(u, v);
-        }
     }
-
-    // Genera gli indici per i triangoli
-    for (let latNumber = 0; latNumber < latitudeBands; latNumber++) {
-        for (let longNumber = 0; longNumber < longitudeBands; longNumber++) {
-            const first = (latNumber * (longitudeBands + 1)) + longNumber;
-            const second = first + longitudeBands + 1;
-
-            indices.push(first);
-            indices.push(second);
-            indices.push(first + 1);
-
-            indices.push(second);
-            indices.push(second + 1);
-            indices.push(first + 1);
-        }
-    }
-
-    return {
-        vertices: new Float32Array(vertices),
-        textureCoords: new Float32Array(textureCoords),
-        indices: new Uint16Array(indices)
-    };
+    return tilesInfo;
 }
 
-// Esempio di utilizzo
-const radius = 1; // Raggio della sfera
-const latitudeBands = 30; // Numero di bande di latitudine
-const longitudeBands = 30; // Numero di bande di longitudine
-const sphereData = generateSphere(radius, latitudeBands, longitudeBands);
+let deltaX = 0; // Variabile per memorizzare il cambiamento della posizione X
+function mouseVisualControl(settings) {
+    let isMouseDown = false; // Variabile per tenere traccia se il mouse è premuto
+    let lastMouseX = 0; // Ultima posizione X del mouse
+
+    //evento per calcolare quando la rotella del mouse è premuta per girare la visuale
+    if (settings.staticVisual === false) {
+        document.getElementById("arrow-controls-static").style.display = "none";
+        document.getElementById("arrow-controls-dynamic").style.display = "flex";
+        //disableWheelControls()
+        canvas.addEventListener('mousedown', (event) => {
+            if (event.button === 1) {
+                isMouseDown = true;
+                lastMouseX = event.clientX;
+            }
+        });
+
+        canvas.addEventListener('mouseup', (event) => {
+            if (event.button === 1) {
+                isMouseDown = false;
+            }
+        });
+
+        canvas.addEventListener('mousemove', onMouseMove);
+        //eventi touch per i cellulari
+        let intervalId;
+        document.getElementById('Camleft').addEventListener('touchstart', () => {
+            intervalId = setInterval(() => {
+                deltaX = -1.5;
+            }, 1);
+        });
+
+        document.getElementById('Camright').addEventListener('touchstart', () => {
+            intervalId = setInterval(() => {
+                deltaX = 1.5;
+
+            }, 1);
+        });
+
+        document.addEventListener('touchend', () => {
+            // Ferma l'aggiornamento di deltaX quando il mouse è rilasciato
+            clearInterval(intervalId);
+        });
+    } else {
+        //mostro solo i comandi statici per la visuale
+        document.getElementById("arrow-controls-static").style.display = "flex";
+        document.getElementById("arrow-controls-dynamic").style.display = "none";
+        // Aggiungi l'evento per la rotella del mouse
+        canvas.addEventListener('wheel', wheel);
+        //eventi touch per i cellulari
+        let intervalId;
+        document.getElementById('Camup').addEventListener('touchstart', () => {
+            intervalId = setInterval(() => {
+                deltaX = 0.5;
+            }, 1);
+        });
+
+        document.getElementById('Camdown').addEventListener('touchstart', () => {
+            intervalId = setInterval(() => {
+                deltaX = -0.5;
+            }, 1);
+        });
+
+        document.addEventListener('touchend', () => {
+            // Ferma l'aggiornamento di deltaX quando il mouse è rilasciato
+            clearInterval(intervalId);
+        });
+    }
+
+    function onMouseMove(event) {
+        if (settings.staticVisual === true) {
+            canvas.removeEventListener('mousemove', onMouseMove);
+        }
+        if (isMouseDown) {
+            deltaX = event.clientX - lastMouseX; // Calcola il cambiamento della posizione X
+            lastMouseX = event.clientX;
+        }
+
+    }
+
+    function wheel(event) {
+        if (settings.staticVisual === false) {
+            canvas.removeEventListener('wheel', wheel);
+        }
+
+        event.preventDefault();
+        const deltaY = event.deltaY;
+        if (deltaY < 0) {
+            deltaX = 0.7;
+
+        } else {
+            deltaX = -0.7;
+
+        }
+
+
+    }
+}
+
+
+

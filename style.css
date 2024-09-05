@@ -20,15 +20,15 @@ body {
   margin: 5px;
   font-size: 24px; /* Aumenta la dimensione del testo */
   cursor: pointer;
-  transition: background-color 0.3s; /* Transizione per il colore di sfondo */
-  user-select: none; /* Disabilita la selezione del testo */
-  -webkit-user-select: none; /* Per Safari */
-  -moz-user-select: none; /* Per Firefox */
-  -ms-user-select: none; /* Per Internet Explorer/Edge */
+  transition: background-color 0.3s; 
+  user-select: none; 
+  -webkit-user-select: none; 
+  -moz-user-select: none; 
+  -ms-user-select: none; 
 }
 
 .button:hover {
-  background-color: rgba(200, 200, 200, 0.8); /* Cambia colore al passaggio del mouse */
+  background-color: rgba(200, 200, 200, 0.8); 
 }
 
 #controls {
@@ -43,7 +43,7 @@ body {
 
 /* Contenitore per i pulsanti delle frecce */
 #arrow-controls {
-  display: flex; /* Layout orizzontale per le frecce */
+  display: flex; 
   justify-content: center; /* Centra le frecce orizzontalmente */
 }
 
@@ -52,23 +52,34 @@ body {
 }
 
 #controlsCamera {
-  position: fixed; /* Cambia da absolute a fixed per mantenerli visibili */
+  position: fixed; 
   bottom: 20px; /* Distanza dal fondo */
   left: 75%; /* Distanza dal lato sinistro */
   display: flex;
   flex-direction: column;
   align-items: center;
-  z-index: 1000; /* Assicurati che siano sopra altri elementi */
+  z-index: 1000; 
 }
 
-/* Nascondi i controlli per schermi più grandi */
 #controls, #controlsCamera {
   display: none;
 }
 
-/* Mostra i controlli solo per schermi di dimensioni inferiori a 768px */
-@media (max-width: 768px) {
-  #controls, #controlsCamera {
-    display: flex; /* Mostra i controlli in modalità cellulare */
-  }
+
+#arrow-controls-static {
+  display: none; /* Layout orizzontale per le frecce */
+  justify-content: center; /* Centra le frecce orizzontalmente */
+}
+
+#arrow-controls-dynamic {
+  display: flex; /* Layout orizzontale per le frecce */
+  justify-content: center; /* Centra le frecce orizzontalmente */
+}
+
+#arrow-controls-dynamic > div {
+  margin: 0 15px; /* Spazio tra i pulsanti */
+}
+
+#arrow-controls-static > div {
+  margin: 0 15px; /* Spazio tra i pulsanti */
 }

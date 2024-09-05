@@ -154,7 +154,7 @@ async function main() {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(dataTable.faces[i].texCoords), gl.STATIC_DRAW);
   }
 
-  //carico la sSphere
+  //carico la semi sfera
   const responseSphereMtl = await fetch('obj/stars_cupola.mtl');
   const textSphereMtl = await responseSphereMtl.text();
   const responseSphere = await fetch('obj/stars_cupola.obj');
@@ -175,24 +175,8 @@ async function main() {
   sphereTex = gl.createBuffer();
   gl.bindBuffer(gl.ARRAY_BUFFER, sphereTex);
   gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(dataSphere.faces[0].texCoords), gl.STATIC_DRAW);
-  /*
-  //crea le stelle
-  const radius = 1; // Raggio della sfera
-const latitudeBands = 30; // Numero di bande di latitudine
-const longitudeBands = 30; // Numero di bande di longitudine
-const sphereData = generateSphere(radius, latitudeBands, longitudeBands);
 
-console.log("shepre",sphereData.vertices)
-  
-    //position
-    starPos = gl.createBuffer();
-    gl.bindBuffer(gl.ARRAY_BUFFER, starPos);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(sphereData.vertices), gl.STATIC_DRAW);
-*/
-
-
-
-  // texture section, carico le texture
+  //  carico le texture
   const texture1 = loadTexture(gl, 'textures/marmo_nero_texture.jpg');
   const texture2 = loadTexture(gl, 'textures/marmo_texture.jpg');
   const texture3 = loadTexture(gl, 'textures/marmo_bianco_pezzi.jpg');
@@ -224,49 +208,6 @@ console.log("shepre",sphereData.vertices)
 
   m4.perspective(fov, aspect, zNear, zFar, projection);
 
-  let isMouseDown = false; // Variabile per tenere traccia se il mouse è premuto
-  let lastMouseX = 0; // Ultima posizione X del mouse
-  let deltaX = 0; // Variabile per memorizzare il cambiamento della posizione X
-  //evento per calcolare quando la rotella del mouse è premuta per girare la visuale
-  canvas.addEventListener('mousedown', (event) => {
-    if (event.button === 1) {
-      isMouseDown = true;
-      lastMouseX = event.clientX;
-    }
-  });
-
-  canvas.addEventListener('mouseup', (event) => {
-    if (event.button === 1) {
-      isMouseDown = false;
-    }
-  });
-
-  canvas.addEventListener('mousemove', (event) => {
-    if (isMouseDown) {
-      deltaX = event.clientX - lastMouseX; // Calcola il cambiamento della posizione X
-      lastMouseX = event.clientX;
-    }
-  });
-  //eventi touch per i cellulari
-  let intervalId;
-  document.getElementById('Camleft').addEventListener('touchstart', () => {
-    intervalId = setInterval(() => {
-      deltaX -= 0.4;
-    }, 1);
-  });
-
-  document.getElementById('Camright').addEventListener('touchstart', () => {
-    intervalId = setInterval(() => {
-      deltaX += 0.4;
-    }, 1);
-  });
-
-  document.addEventListener('touchend', () => {
-    // Ferma l'aggiornamento di deltaX quando il mouse è rilasciato
-    clearInterval(intervalId);
-  });
-
-
   // Array per memorizzare le posizioni dei tasselli
   var tilePositions = calculateTilePositions(8, 8, 2.0);
   var tileDeathPositions = calculateTileDeathPositions(8, 8, 2.0);
@@ -286,11 +227,13 @@ console.log("shepre",sphereData.vertices)
   let px = 7;
   let py = 5;
   let pz = 20;
-  let elev = 0;
+
   let ang = 0;
-  let roll = 0;
   const speed = 10;
-  const turnSpeed = 90;
+  //camera[8] etc.. sono i componenti della direzione in cui la telecamera è orientata
+  var forward = [camera[8], camera[9], camera[10]]; // Direzione "forward"
+  var right = [camera[0], camera[1], camera[2]]; // Direzione "right"
+  var targetZ = pz + forward[2];
   let then = 0;
   //creazione del frame e depth buffer, il primo utilizzato per il picking dei tasselli e il secondo per le ombre
   const fbo = createFrameBuffer(gl);
@@ -305,7 +248,8 @@ console.log("shepre",sphereData.vertices)
     lightZ: 50,
     shininess: 50,
     enableShadows: true,
-    enableCredits: false
+    enableCredits: false,
+    staticVisual: false
   };
   // Crea la GUI
   var gui = new dat.GUI();
@@ -317,6 +261,7 @@ console.log("shepre",sphereData.vertices)
   var lightZValueControl = gui.add(settings, 'lightZ', -50, 50).name('LightZ');
   var shininessControl = gui.add(settings, 'shininess', 20, 150).name('Shininess');
   var enableShadowsControl = gui.add(settings, 'enableShadows').name('Enable Shadows');
+  var staticVisualControl = gui.add(settings, 'staticVisual').name('Static Visual');
   var enableCreditsControl = gui.add(settings, 'enableCredits').name('Credits');
   var buttonControl = gui.add({
     myFunction: function () {
@@ -333,6 +278,7 @@ console.log("shepre",sphereData.vertices)
 
     }
   }, 'myFunction').name("Reset")
+
   // Funzione per aggiornare il valore di limitValue
   function updateLimitValue(value) {
     limitValue = degToRad(value);
@@ -367,6 +313,13 @@ console.log("shepre",sphereData.vertices)
   function updateCredits(value) {
     enableCredits = value;
   }
+  //funzione per modificare i controlli della visuale
+  function updateVisual(value) {
+    px = 7;
+    py = 5;
+    pz = 20;
+    staticVisual = value;
+  }
   // Aggiungi un listener per il controllo 
   limitValueControl.onChange(updateLimitValue);
   lightXValueControl.onChange(updateLightXValue);
@@ -375,18 +328,21 @@ console.log("shepre",sphereData.vertices)
   shininessControl.onChange(updateShininessalue);
   enableShadowsControl.onChange(updateShadow);
   enableCreditsControl.onChange(updateCredits);
+  staticVisualControl.onChange(updateVisual);
+
   //mostra le ombre
   gl.uniform1f(uniforms.selectShadowLoc, 1.0);
   //setto il bias per le ombre
   gl.uniform1f(uniforms.biasLoc, -0.00001);
-  const dataID = new Uint8Array(4); // Buffer per leggere i pixel
-  //setto la podina selezioanta a 99 (nessuna pedina selezionata)
+  const dataID = new Uint8Array(4); // Buffer per leggere i pixel dal frame Buffer
+  //setto la pedina selezioanta a 99 (nessuna pedina selezionata)
   dataID[0] = 99;
   let movement = [];
   let pieceSelected = 99;
   //inizializzo il movimento dei pezzi a false
   let movePiece = false;
   let cubeAngle = 0.1;
+
   //render
   function render(now) {
     now *= 0.001;  // seconds;
@@ -396,12 +352,10 @@ console.log("shepre",sphereData.vertices)
     gl.enable(gl.CULL_FACE);
     gl.enable(gl.DEPTH_TEST);
 
-    //creao la matrice camera 
+    //creo la matrice camera 
     m4.identity(camera);
-    m4.translate(camera, px, py, pz, camera);
-    m4.xRotate(camera, degToRad(elev), camera);
-    m4.yRotate(camera, degToRad(-ang), camera);
-    m4.zRotate(camera, degToRad(roll), camera);
+    //setto i listner per il mouse
+    mouseVisualControl(settings);
 
     //setto i bottoni per il cellulare 
     const upButton = document.getElementById('up');
@@ -436,10 +390,10 @@ console.log("shepre",sphereData.vertices)
     //se i tasti w o s sono premuti muove la telecamera, il delta time rappresenta il tempo trascorso dall'ultimo frame 
     if (keys['w'] || keys['s']) {
       const direction = keys['w'] ? 1 : -1;
-      //camera[8] etc.. sono i componenti della direzione in cui la telecamera è orientata
-      px -= camera[8] * deltaTime * speed * direction;
-      py -= camera[9] * deltaTime * speed * direction;
-      pz -= camera[10] * deltaTime * speed * direction;
+      
+      px -= forward[0] * deltaTime * speed * direction;
+      py -= forward[1] * deltaTime * speed * direction;
+      pz -= forward[2] * deltaTime * speed * direction;
       // Limiti per pz
       if (pz < -20) {
         pz = -20;
@@ -450,9 +404,9 @@ console.log("shepre",sphereData.vertices)
 
     if (keys['a'] || keys['d']) {
       const direction = keys['a'] ? 1 : -1;
-      px -= camera[0] * deltaTime * speed * direction;
-      py -= camera[1] * deltaTime * speed * direction;
-      pz -= camera[2] * deltaTime * speed * direction;
+      px -= right[0] * deltaTime * speed * direction;
+      py -= right[1] * deltaTime * speed * direction;
+      pz -= right[2] * deltaTime * speed * direction;
       if (px < -20) {
         px = -20;
       } else if (px > 30) {
@@ -460,20 +414,22 @@ console.log("shepre",sphereData.vertices)
       }
 
     }
-    console.log("px", px);
-    console.log("py", py);
-    console.log("pz", pz);
-    if (keys[' ']) {
-      dataID[0] = 99;
-      movePiece = false;
-      movement = [];
+    //cambio il comportamento della visuale se la checkbox della visuale statica è selezionata
+    if (settings.staticVisual == true) {
+      m4.lookAt([px, py, pz], [7, 0, 6], [0, 1, 0], camera);
+      py += deltaX;
+    } else {
+      ang += deltaX * 0.5
+      // Usa la direzione della telecamera
+      targetZ += pz + forward[2];
+      m4.lookAt([px, py, pz], [pz, py, -targetZ], [0, 1, 0], camera);
+      m4.yRotate(camera, degToRad(-ang), camera);
     }
-
-    // Aggiorna l'angolo in base a deltaX e deltaTime
-    ang += deltaX * 0.5; // Aggiorna la posizione della telecamera sull'asse X
-
     // Reset deltaX dopo l'aggiornamento
     deltaX = 0;
+
+    forward = [camera[8], camera[9], camera[10]]; // Aggiorna il vettore forward
+    right = [camera[0], camera[1], camera[2]]; // Aggiorna il vettore right
 
     //se una pedina è selezionata setto il movimento
     if (movePiece == true) {
@@ -500,23 +456,26 @@ console.log("shepre",sphereData.vertices)
         canvas.width / canvas.height,
         0.1,  // near
         100)   // far
-    // disegno sulla depth texture usando il punto di vista della luce
-    gl.bindFramebuffer(gl.FRAMEBUFFER, depthFrameBuffer)
-    gl.viewport(0, 0, canvas.width, canvas.height);
-    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.clearColor(0, 0, 0, 1);
-    gl.useProgram(colorProgram);
-    uniforms = setAttrUniform(colorProgram, gl);
+    if (settings.enableShadows === true) {
+      // disegno sulla depth texture usando il punto di vista della luce
+      gl.bindFramebuffer(gl.FRAMEBUFFER, depthFrameBuffer)
+      gl.viewport(0, 0, canvas.width, canvas.height);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
-    drawScene(lightProjectionMatrix, lightWorldMatrix, 0);
+      gl.useProgram(colorProgram);
+      uniforms = setAttrUniform(colorProgram, gl);
 
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      drawScene(lightProjectionMatrix, lightWorldMatrix, 0);
+
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    }
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     //passo poi la programma principale per ridisegnare la scena sul canvas
     gl.useProgram(mainProgram);
     uniforms = setAttrUniform(mainProgram, gl);
-    //setto la texture matrix per trasformare da coordinate del mondo a coordinate uv per la texture
+    //setto la texture matrix utilizzata poi per campionare la depth texture
     let textureMatrix = m4.identity();
     textureMatrix = m4.translate(textureMatrix, 0.5, 0.5, 0.5);
     textureMatrix = m4.scale(textureMatrix, 0.5, 0.5, 0.5);
@@ -540,10 +499,9 @@ console.log("shepre",sphereData.vertices)
     // setto lo shininess
     const shininess = settings.shininess;
     gl.uniform1f(uniforms.shininessLoc, shininess);
-    //setto le varie uniform per la luce
-    var lmat = m4.lookAt(lightPosition, target, up);
-
-    var lightDirection = [-lmat[8], -lmat[9], -lmat[10]];
+    //setto le varie uniform per la direzione, posizione e limit per la luce 
+  
+    var lightDirection = [-lightWorldMatrix[8], -lightWorldMatrix[9], -lightWorldMatrix[10]];
     gl.uniform3fv(uniforms.lightPositionLoc, lightPosition);
     gl.uniform3fv(uniforms.viewWorldPositionLoc, [px, py, pz]);
     var limit = degToRad(settings.limitValue);
@@ -556,7 +514,6 @@ console.log("shepre",sphereData.vertices)
 
   function drawScene(projMatrix, cameraMatrix, progSelect) {
     // Calcola la matrice di vista
-
     m4.inverse(cameraMatrix, view);
     gl.uniformMatrix4fv(uniforms.viewLoc, false, view);
 
@@ -607,16 +564,14 @@ console.log("shepre",sphereData.vertices)
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, texture1);
           // Imposta l'uniform per la texture
-          const u_textureLocation = gl.getUniformLocation(mainProgram, 'u_texture');
-          gl.uniform1i(u_textureLocation, 0);
+          gl.uniform1i(uniforms.textureLoc, 0);
 
         } else {
           // Attiva la texture
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, texture2);
           // Imposta l'uniform per la texture
-          const u_textureLocation = gl.getUniformLocation(mainProgram, 'u_texture');
-          gl.uniform1i(u_textureLocation, 0);
+          gl.uniform1i(uniforms.textureLoc, 0);
         }
 
         if (dataID[0] === i) {
@@ -624,8 +579,7 @@ console.log("shepre",sphereData.vertices)
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, texture5);
           // Imposta l'uniform per la texture
-          const u_textureLocation = gl.getUniformLocation(mainProgram, 'u_texture');
-          gl.uniform1i(u_textureLocation, 0);
+          gl.uniform1i(uniforms.textureLoc, 0);
         }
 
         movement.forEach((element) => {
@@ -634,12 +588,11 @@ console.log("shepre",sphereData.vertices)
             gl.activeTexture(gl.TEXTURE0);
             gl.bindTexture(gl.TEXTURE_2D, texture6);
             // Imposta l'uniform per la texture
-            const u_textureLocation = gl.getUniformLocation(mainProgram, 'u_texture');
-            gl.uniform1i(u_textureLocation, 0);
+            gl.uniform1i(uniforms.textureLoc, 0);
           }
         });
         // Calcola il colore unico per l'indice della casella
-        const color = [(i % 256) / 255, (Math.floor(i / 256) % 256) / 255, 0, 1]; // Colore basato sull'indice
+        const color = [i / 255, 0, 0, 1]; // Colore basato sull'indice
         gl.uniform4fv(uniforms.idTilesLoc, color);
 
 
@@ -681,16 +634,14 @@ console.log("shepre",sphereData.vertices)
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, texture3);
         // Imposta l'uniform per la texture
-        const u_textureLocation = gl.getUniformLocation(mainProgram, 'u_texture');
-        gl.uniform1i(u_textureLocation, 0);
+        gl.uniform1i(uniforms.textureLoc, 0);
       } else {
 
         // Attiva la texture
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, texture4);
         // Imposta l'uniform per la texture
-        const u_textureLocation = gl.getUniformLocation(mainProgram, 'u_texture');
-        gl.uniform1i(u_textureLocation, 0);
+        gl.uniform1i(uniforms.textureLoc, 0);
 
       }
 
@@ -732,16 +683,14 @@ console.log("shepre",sphereData.vertices)
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, texture1);
           // Imposta l'uniform per la texture
-          const u_textureLocation = gl.getUniformLocation(mainProgram, 'u_texture');
-          gl.uniform1i(u_textureLocation, 0);
+          gl.uniform1i(uniforms.textureLoc, 0);
 
         } else {
           // Attiva la texture
           gl.activeTexture(gl.TEXTURE0);
           gl.bindTexture(gl.TEXTURE_2D, texture2);
           // Imposta l'uniform per la texture
-          const u_textureLocation = gl.getUniformLocation(mainProgram, 'u_texture');
-          gl.uniform1i(u_textureLocation, 0);
+          gl.uniform1i(uniforms.textureLoc, 0);
         }
 
         gl.bindBuffer(gl.ARRAY_BUFFER, arrayOfBuffersNorm); // Usa il buffer per le normali
@@ -797,8 +746,7 @@ console.log("shepre",sphereData.vertices)
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, texture7);
         // Imposta l'uniform per la texture
-        const u_textureLocation = gl.getUniformLocation(mainProgram, 'u_texture');
-        gl.uniform1i(u_textureLocation, 0);
+        gl.uniform1i(uniforms.textureLoc, 0);
       }
 
 
@@ -837,8 +785,7 @@ console.log("shepre",sphereData.vertices)
         gl.activeTexture(gl.TEXTURE0);
         gl.bindTexture(gl.TEXTURE_2D, texture8);
         // Imposta l'uniform per la texture
-        const u_textureLocation = gl.getUniformLocation(mainProgram, 'u_texture');
-        gl.uniform1i(u_textureLocation, 0);
+        gl.uniform1i(uniforms.textureLoc, 0);
       }
 
       // Collega e imposta gli attributi dei vertici
@@ -851,16 +798,15 @@ console.log("shepre",sphereData.vertices)
   }
 
   function drawStar(progSelect) {
+    //disabilito il cullface così da mostrare anche le texture interne alla sfera
     gl.disable(gl.CULL_FACE);
     if (progSelect === 1) {
       m4.identity(model);
       const modelScale = m4.scaling(10, 10, 10);
       const modelTranslation = m4.translation(7, 0, 7);
 
-      // Moltiplica prima la scala e poi la traslazione
       m4.multiply(modelScale, model, model);
       m4.multiply(modelTranslation, model, model);
-      //m4.multiply(modelTranslation, model, model);
       gl.uniformMatrix4fv(uniforms.modelLoc, false, model);
 
       gl.bindBuffer(gl.ARRAY_BUFFER, sphereNorm); // Usa il buffer per le normali
@@ -872,28 +818,19 @@ console.log("shepre",sphereData.vertices)
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, texture9);
       // Imposta l'uniform per la texture
-      const u_textureLocation = gl.getUniformLocation(mainProgram, 'u_texture');
-      gl.uniform1i(u_textureLocation, 0);
-      // Invia la matrice del modello al shader
+      gl.uniform1i(uniforms.textureLoc, 0);
 
-      //setto il colore del punto
-      //gl.uniform4fv(uniforms.uColorLoc, [1, 1, 1, 1]);
-
-      // Collega e imposta gli attributi dei vertici
       gl.bindBuffer(gl.ARRAY_BUFFER, spherePos); // Usa il buffer per la posizione
       gl.vertexAttribPointer(positionLoc, 3, gl.FLOAT, false, 0, 0);
       gl.uniform1f(uniforms.sphereLoc, 1.0);
       gl.drawArrays(gl.TRIANGLES, 0, dataSphere.faces[0].positions.length / 3);
 
       gl.uniform1f(uniforms.sphereLoc, 0.0);
-      gl.enableVertexAttribArray(texcordLoc)
-      gl.enableVertexAttribArray(normalLoc)
     }
     gl.enable(gl.CULL_FACE);
   }
 
   const mousePosition = { x: 0, y: 0 };
-  let oldID = 99;
   canvas.addEventListener('mousedown', (evt) => {
 
     if (evt.button === 0) {
@@ -902,7 +839,7 @@ console.log("shepre",sphereData.vertices)
       //disegno sul frame buffer la scacchiera, dopodichè leggo i pixel ed estraggo l'identificativo univoco 
       //associato alla casella della scacchiera
       gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-      gl.clearColor(0.0, 0.0, 0.0, 0.0); // Colore nero con trasparenza
+      gl.clearColor(0.0, 0.0, 0.0, 0.0);
       // Pulisce il buffer di colore
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.uniform1f(uniforms.selectLoc, 1.0);
@@ -910,8 +847,8 @@ console.log("shepre",sphereData.vertices)
 
       gl.readPixels(
         mousePosition.x, mousePosition.y, 1, 1,
-        gl.getParameter(gl.IMPLEMENTATION_COLOR_READ_FORMAT),
-        gl.getParameter(gl.IMPLEMENTATION_COLOR_READ_TYPE),
+        gl.RGBA,
+        gl.UNSIGNED_BYTE, //Utilizzato per rappresentare ciascuna componente (R, G, B, A) come un valore intero senza segno compreso tra 0 e 255
         dataID
       );
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);

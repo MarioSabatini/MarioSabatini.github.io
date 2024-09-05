@@ -25,30 +25,35 @@
   </div>
 
   <div id="controlsCamera">
-
-    <div id="arrow-controls">
+    <div id="arrow-controls-static">
+      <div class="button" id="Camup">Up</div>
+      <div class="button" id="Camdown">Down</div>
+    </div>
+    <div id="arrow-controls-dynamic">
       <div class="button" id="Camleft">Left</div>
       <div class="button" id="Camright">Right</div>
     </div>
+   
   </div>
   <!-- vertex shader -->
   <script id="vs" type="x-shader/x-vertex">
-
+// Definizione attributi
 attribute vec4 aPosition;
 attribute vec2 aTexCoord;
 attribute vec3 aNormal;
 
+// Definizione Uniformi
 uniform mat4 uModel;
 uniform mat4 uView;
 uniform mat4 uProjection;
-uniform mat4 u_textureMatrix;
 
+uniform mat4 u_textureMatrix;
 uniform vec3 u_lightWorldPosition;
 uniform vec3 u_viewWorldPosition;
 
+uniform mat4 uNormalMatrix; 
 
-uniform mat4 uNormalMatrix; // Matrice per trasformare le normali
-
+// Definizione variabili da passare al fragment shader
 varying vec3 v_surfaceToLight;
 varying vec3 v_surfaceToView;
 
@@ -58,26 +63,26 @@ varying vec3 v_normal;
 varying vec4 v_projectedTexcoord;
 void main()
 {
-  // compute the world position of the surface
+  // Calcola la posizione del vertice nel mondo
   vec3 surfaceWorldPosition = (uModel * aPosition).xyz;
+
+  // Calcola il vettore dalla superficie alla luce
   v_surfaceToLight = u_lightWorldPosition - surfaceWorldPosition;
 
-  // compute the vector of the surface to the view/camera
-  // and pass it to the fragment shader
+  // Calcola il vettore dalla superficie alla camera
   v_surfaceToView = u_viewWorldPosition - surfaceWorldPosition;
 
-
-  // Calcola la normale trasformata
   v_normal = normalize((uNormalMatrix * vec4(aNormal, 0.0)).xyz);
-  //v_normal = aNormal; // Passa il normale al fragment shader
-  vTexCoord = aTexCoord; // Passa le coordinate texture
+  vTexCoord = aTexCoord; 
 
-  // Calcola la posizione del vertice nel mondo
+  // Calcola la posizione del vertice nel mondo per la proiezione della texture
   vec4 worldPosition = uModel * aPosition;
+
+  // Calcola le coordinate proiettate per il campionamento della depth texture
   v_projectedTexcoord = u_textureMatrix * worldPosition;
 
   // Calcola la posizione finale del vertice
-  gl_Position = uProjection * uView * worldPosition; // Usa worldPosition
+  gl_Position = uProjection * uView * worldPosition; 
 
 }
   </script>
@@ -85,83 +90,92 @@ void main()
   <!-- fragment shader -->
   <script id="fs" type="x-shader/x-fragment">
   precision mediump float; // Imposta la precisione per i float
+  // Variabili che verranno passate dal vertex shader
+  varying vec2 vTexCoord; 
+  varying vec3 v_normal; 
 
-varying vec2 vTexCoord; // Coordinate texture dal vertex shader
-varying vec3 v_normal; // Normale dal vertex shader
+  varying vec3 v_surfaceToLight;
+  varying vec3 v_surfaceToView;
+  varying vec4 v_projectedTexcoord;
 
-varying vec3 v_surfaceToLight;
-varying vec3 v_surfaceToView;
-varying vec4 v_projectedTexcoord;
+  // Uniformi per l'illuminazione e le texture
+  uniform float u_shininess;
+  uniform vec3 u_lightDirection;
+  uniform float u_limit;          
+  uniform float u_bias;
+  uniform sampler2D u_projectedTexture;
 
-uniform float u_shininess;
-uniform vec3 u_lightDirection;
-uniform float u_limit;          // in dot space
-uniform float u_bias;
-uniform sampler2D u_projectedTexture;
+  uniform sampler2D u_texture; 
+  uniform float u_selectTiles; 
+  uniform vec4 u_tilesId; 
+  uniform float u_selectShadow;
+  uniform float u_sphere;
 
-uniform sampler2D u_texture; // Texture uniform
-uniform float u_selectTiles; 
-uniform vec4 u_tilesId; 
-uniform float u_selectShadow;
-uniform float u_sphere;
+  void main()
+  {  
+    // Normalizza le coordinate proiettate per il campionamento della depth texture
+    vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
 
-void main()
-{  
-  vec3 projectedTexcoord = v_projectedTexcoord.xyz / v_projectedTexcoord.w;
+    // Calcola la profondità corrente del pixel, aggiungendo un bias
+    float currentDepth = projectedTexcoord.z + u_bias;
 
-  float currentDepth = projectedTexcoord.z + u_bias;
+    // Verifica se le coordinate sono all'interno del range [0, 1]
+    bool inRange =
+        projectedTexcoord.x >= 0.0 &&
+        projectedTexcoord.x <= 1.0 &&
+        projectedTexcoord.y >= 0.0 &&
+        projectedTexcoord.y <= 1.0;
+    // Campiona la profondità dalla depth texture 
+    float projectedDepth = texture2D(u_projectedTexture, projectedTexcoord.xy).r;
+    // Calcola se il pixel è in ombra
+    float shadowLight = (inRange && projectedDepth <= currentDepth) ? 0.0 : 1.0;  
 
-   bool inRange =
-      projectedTexcoord.x >= 0.0 &&
-      projectedTexcoord.x <= 1.0 &&
-      projectedTexcoord.y >= 0.0 &&
-      projectedTexcoord.y <= 1.0;
-  // the 'r' channel has the depth values
+    vec3 normal = normalize(v_normal); 
 
-  float projectedDepth = texture2D(u_projectedTexture, projectedTexcoord.xy).r;
-  float shadowLight = (inRange && projectedDepth <= currentDepth) ? 0.0 : 1.0;  
+    // Calcola le direzioni dalla superficie alla luce e dalla superficie alla camera
+    vec3 surfaceToLightDirection = normalize(v_surfaceToLight);
+    vec3 surfaceToViewDirection = normalize(v_surfaceToView);
 
-  float projectedAmount = inRange ? 1.0 : 0.0;
+    // Calcola il l'half vector per il riflesso speculare
+    vec3 halfVector = normalize(surfaceToLightDirection + surfaceToViewDirection);
+    float light = 0.0;
+    float specular = 0.0;
 
-  vec3 normal = normalize(v_normal); // Normalizza il normale
+    float dotFromDirection = dot(surfaceToLightDirection, -u_lightDirection);
 
-  vec3 surfaceToLightDirection = normalize(v_surfaceToLight);
-  vec3 surfaceToViewDirection = normalize(v_surfaceToView);
-  vec3 halfVector = normalize(surfaceToLightDirection + surfaceToViewDirection);
-  float light = 0.0;
-  float specular = 0.0;
-  float dotFromDirection = dot(surfaceToLightDirection, -u_lightDirection);
-
-  if (dotFromDirection >= u_limit) {
-    light = dot(normal, surfaceToLightDirection);
-    if (light > 0.0) {
-      specular = pow(dot(normal, halfVector), u_shininess);
+    // Se il prodotto scalare supera il limite, calcola l'illuminazione
+    if (dotFromDirection >= u_limit) {
+      light = dot(normal, surfaceToLightDirection);
+      if (light > 0.0) {
+        specular = pow(dot(normal, halfVector), u_shininess);
+      }
     }
-  }
 
-
-  vec4 textureColor = texture2D(u_texture, vTexCoord); // Campiona la texture
-  if(u_selectTiles == 1.0){
-    gl_FragColor = u_tilesId;
-  }else{
-    if(u_sphere == 1.0){
-      gl_FragColor = textureColor; // Imposta il colore della texture
+    vec4 textureColor = texture2D(u_texture, vTexCoord); 
+    // Se sto utilizzando il frameBuffer per calcolare l'id delle caselle per il picking disegno ogni casella con un colore univoco
+    if(u_selectTiles == 1.0){
+      gl_FragColor = u_tilesId;
     }else{
-      if(u_selectShadow == 1.0){
-        // Calcola il colore finale
-        gl_FragColor = textureColor * light * shadowLight; // Imposta il colore della texture
-        gl_FragColor.rgb += specular;
-        gl_FragColor.a = 1.0;
+      // Se sto disegnando la semisfera per le stelle disegno soltanto la texture applicata
+      if(u_sphere == 1.0){
+        gl_FragColor = textureColor; 
       }else{
-        gl_FragColor = textureColor * light;
-        gl_FragColor.rgb += specular;
-        gl_FragColor.a = 1.0;
+        // Controlla se le ombre sono disabilitate o meno
+        if(u_selectShadow == 1.0){
+          // Calcola il colore finale
+          gl_FragColor = textureColor * light * shadowLight; 
+          gl_FragColor.rgb += specular;
+          gl_FragColor.a = 1.0;
+        }else{
+          gl_FragColor = textureColor * light;
+          gl_FragColor.rgb += specular;
+          gl_FragColor.a = 1.0;
+        }
+      }
+      
     }
-  }
-    
-  }
 
-}
+  }
   </script>
 
   <!-- vertex shader -->
@@ -189,10 +203,9 @@ void main()
   }
   </script>
 </body>
-<script type="text/javascript" src="resources/m4.js"></script>
-<script type="text/javascript" src="resources/glm_utils.js"></script>
-<script src="https://webglfundamentals.org/webgl/resources/webgl-lessons-ui.js"></script>
 <script type="text/javascript" src="resources/dat.gui.js"></script>
+<script type="text/javascript" src="resources/m4.js"></script>
+
 <script src="utils.js"></script>
 <script src="project.js"></script>
 
